@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import org.apache.catalina.WebResourceRoot;
 import org.apache.catalina.WebResourceSet;
 import org.apache.catalina.core.StandardContext;
+import org.apache.catalina.session.StandardManager;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.catalina.webresources.DirResourceSet;
 import org.apache.catalina.webresources.EmptyResourceSet;
@@ -39,7 +40,7 @@ public class App
     }
 
     public static void main(String[] args) throws Exception {
-
+        
         File root = getRootFolder();
         System.out.println(root.getAbsolutePath());
         
@@ -70,6 +71,8 @@ public class App
         StandardContext ctx = (StandardContext) tomcat.addWebapp("", webContentFolder.getAbsolutePath());
         //Set execution independent of current thread context classloader (compatibility with exec:java mojo)
         ctx.setParentClassLoader(App.class.getClassLoader());
+        ctx.setManager(null);
+        
 
         System.out.println("configuring app with basedir: " + webContentFolder.getAbsolutePath());
 
@@ -88,7 +91,9 @@ public class App
 
         resources.addPreResources(resourceSet);
         ctx.setResources(resources);
+
         tomcat.getConnector();
+        
         tomcat.start();
     }
 }
