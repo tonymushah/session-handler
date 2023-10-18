@@ -20,6 +20,7 @@ import org.apache.catalina.webresources.StandardRoot;
 
 public class App 
 {
+    
     private static File getRootFolder() {
         try {
             File root;
@@ -41,17 +42,22 @@ public class App
 
         File root = getRootFolder();
         System.out.println(root.getAbsolutePath());
+        
         System.setProperty("org.apache.catalina.startup.EXIT_ON_INIT_FAILURE", "true");
         Tomcat tomcat = new Tomcat();
+
         //The port that we should run on can be set into an environment variable
         //Look for that variable and default to 8080 if it isn't there.
         String webPort = System.getenv("PORT");
         if (webPort == null || webPort.isEmpty()) {
-            webPort = "8080";
+            webPort = "8081";
         }
 
-        tomcat.setPort(Integer.valueOf(webPort));
-        tomcat.setHostname("127.0.0.1");
+        int port = Integer.valueOf(webPort);
+        //System.out.println(port);
+        tomcat.setPort(port);
+        tomcat.setHostname("localhost");
+        
         Path tempPath = Files.createTempDirectory("tomcat-base-dir");
         tomcat.setBaseDir(tempPath.toString());
 
@@ -79,10 +85,10 @@ public class App
         } else {
             resourceSet = new EmptyResourceSet(resources);
         }
+
         resources.addPreResources(resourceSet);
         ctx.setResources(resources);
-
+        tomcat.getConnector();
         tomcat.start();
-        tomcat.getServer().await();
     }
 }
