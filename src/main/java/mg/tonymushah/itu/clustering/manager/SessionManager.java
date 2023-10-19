@@ -2,18 +2,28 @@ package mg.tonymushah.itu.clustering.manager;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.Optional;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.Manager;
 import org.apache.catalina.Session;
 import org.apache.catalina.SessionIdGenerator;
 import org.apache.catalina.session.ManagerBase;
+import org.apache.catalina.session.StandardSessionFacade;
 import org.apache.catalina.util.LifecycleMBeanBase;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+
 public class SessionManager implements Manager {
-    protected Connection dbConnection;
+    private Optional<EntityManager> em;
     protected Context context;
     protected SessionIdGenerator sessionIdGenerator;
+    protected EntityManagerFactory entityManagerFactory;
+
+    public SessionManager(EntityManagerFactory entityManagerFactory) {
+        this.entityManagerFactory = entityManagerFactory;
+    }
 
     @Override
     public Context getContext() {
@@ -139,8 +149,7 @@ public class SessionManager implements Manager {
 
     @Override
     public Session createSession(String sessionId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'createSession'");
+        return null;
     }
 
     @Override
@@ -157,8 +166,7 @@ public class SessionManager implements Manager {
 
     @Override
     public void load() throws ClassNotFoundException, IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'load'");
+        this.setEm(Optional.of(entityManagerFactory.createEntityManager()));
     }
 
     @Override
@@ -181,8 +189,8 @@ public class SessionManager implements Manager {
 
     @Override
     public void unload() throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unload'");
+        this.getEm().get().close();
+        this.setEm(Optional.empty());
     }
 
     @Override
@@ -220,5 +228,14 @@ public class SessionManager implements Manager {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'setSessionLastAccessAtStart'");
     }
+
+    public Optional<EntityManager> getEm() {
+        return em;
+    }
+
+    public void setEm(Optional<EntityManager> em) {
+        this.em = em;
+    }
+
 
 }
