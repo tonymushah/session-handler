@@ -1,8 +1,13 @@
 package mg.tonymushah.itu.clustering.manager;
+
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.sql.Connection;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.management.RuntimeErrorException;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.Manager;
@@ -12,79 +17,65 @@ import org.apache.catalina.session.ManagerBase;
 import org.apache.catalina.session.StandardSessionFacade;
 import org.apache.catalina.util.LifecycleMBeanBase;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityTransaction;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
-public class SessionManager implements Manager {
+public class SessionManager extends AbstractSessionManager {
     private Optional<EntityManager> em;
     protected Context context;
     protected SessionIdGenerator sessionIdGenerator;
     protected EntityManagerFactory entityManagerFactory;
 
+    @Override
+    public int getActiveSessions() {
+        Session[] sessions = findSessions();
+        if(sessions != null){
+            return sessions.length;
+        }else{
+            return 0;
+        }
+    }
     public SessionManager(EntityManagerFactory entityManagerFactory) {
         this.entityManagerFactory = entityManagerFactory;
     }
 
-    @Override
-    public Context getContext() {
-        return this.context;
+    public Optional<EntityManager> getEm() {
+        return em;
+    }
+
+    public void setEm(Optional<EntityManager> em) {
+        this.em = em;
     }
 
     @Override
-    public void setContext(Context context) {
-        this.context = context;
+    public void unload() throws IOException {
+        this.getEm().ifPresent(inner -> {
+            inner.close();
+            this.setEm(Optional.empty());
+        });
     }
 
     @Override
-    public SessionIdGenerator getSessionIdGenerator() {
-        return this.sessionIdGenerator;
-    }
-
-    @Override
-    public void setSessionIdGenerator(SessionIdGenerator sessionIdGenerator) {
-        this.sessionIdGenerator = sessionIdGenerator;
+    public void load() throws ClassNotFoundException, IOException {
+        this.getEm().ifPresent((inner) -> {
+            inner.close();
+        });
+        this.setEm(Optional.of(entityManagerFactory.createEntityManager()));
     }
 
     @Override
     public long getSessionCounter() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getSessionCounter'");
-    }
-
-    @Override
-    public void setSessionCounter(long sessionCounter) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setSessionCounter'");
-    }
-
-    @Override
-    public int getMaxActive() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getMaxActive'");
-    }
-
-    @Override
-    public void setMaxActive(int maxActive) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setMaxActive'");
-    }
-
-    @Override
-    public int getActiveSessions() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getActiveSessions'");
-    }
-
-    @Override
-    public long getExpiredSessions() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getExpiredSessions'");
-    }
-
-    @Override
-    public void setExpiredSessions(long expiredSessions) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setExpiredSessions'");
+        return 0;
     }
 
     @Override
@@ -94,27 +85,9 @@ public class SessionManager implements Manager {
     }
 
     @Override
-    public int getSessionMaxAliveTime() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getSessionMaxAliveTime'");
-    }
-
-    @Override
-    public void setSessionMaxAliveTime(int sessionMaxAliveTime) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setSessionMaxAliveTime'");
-    }
-
-    @Override
     public int getSessionAverageAliveTime() {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'getSessionAverageAliveTime'");
-    }
-
-    @Override
-    public int getSessionCreateRate() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getSessionCreateRate'");
     }
 
     @Override
@@ -125,8 +98,20 @@ public class SessionManager implements Manager {
 
     @Override
     public void add(Session session) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'add'");
+        em.ifPresentOrElse(entityManager -> {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                var sessionEntity = new SessionEntity(session);
+                if(!entityManager.contains(sessionEntity)){
+                    entityManager.persist(sessionEntity);
+                }
+                transaction.commit();
+            } catch (Exception e) {
+                transaction.rollback();
+                throw new RuntimeException(e.fillInStackTrace());
+            }
+        }, null);
     }
 
     @Override
@@ -143,54 +128,81 @@ public class SessionManager implements Manager {
 
     @Override
     public Session createEmptySession() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'createEmptySession'");
+        return this.createSession(this.getSessionIdGenerator().generateSessionId());
     }
 
     @Override
     public Session createSession(String sessionId) {
-        return null;
+        var session = new CustomSession();
+        session.setManager(this);
+        session.setId(sessionId);
+        return session;
     }
 
     @Override
     public Session findSession(String id) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findSession'");
+        return em.map(manager -> {
+            SessionEntity inner = manager.find(SessionEntity.class, id);
+            try {
+                Session toReturn = inner.toSession();
+                toReturn.setManager(this);
+                return toReturn;
+            } catch (JsonMappingException e) {
+                throw new RuntimeException(e.fillInStackTrace());
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e.fillInStackTrace());
+            }
+        }).orElse(null);
     }
 
     @Override
     public Session[] findSessions() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findSessions'");
-    }
-
-    @Override
-    public void load() throws ClassNotFoundException, IOException {
-        this.setEm(Optional.of(entityManagerFactory.createEntityManager()));
+        return em.map(manager -> {
+            CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
+            CriteriaQuery<SessionEntity> query = criteriaBuilder.createQuery(SessionEntity.class);
+            Root<SessionEntity> root = query.from(SessionEntity.class);
+            query.select(root).where(root.get("isExpired").in(false));
+            TypedQuery<SessionEntity> res = manager.createQuery(query);
+            Set<Session> sessions = res.getResultStream().map(value -> {
+                try {
+                    return value.toSession();
+                } catch (JsonProcessingException e) {
+                    return null;
+                }
+            }).filter(v -> Optional.ofNullable(v).isPresent()).collect(Collectors.toSet());
+            Session[] sessions2 = new Session[sessions.size()];
+            sessions2 = sessions.toArray(sessions2);
+            return sessions2;
+        }).orElse(null);
     }
 
     @Override
     public void remove(Session session) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'remove'");
+        this.remove(session, false);
     }
 
     @Override
     public void remove(Session session, boolean update) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'remove'");
+        em.ifPresentOrElse(entityManager -> {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                var sessionEntity = new SessionEntity(session);
+                if(entityManager.contains(sessionEntity)){
+                    entityManager.remove(sessionEntity);
+                }
+                transaction.commit();
+            } catch (Exception e) {
+                transaction.rollback();
+                throw new RuntimeException(e.fillInStackTrace());
+            }
+        }, null);;
     }
 
     @Override
     public void removePropertyChangeListener(PropertyChangeListener listener) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'removePropertyChangeListener'");
-    }
-
-    @Override
-    public void unload() throws IOException {
-        this.getEm().get().close();
-        this.setEm(Optional.empty());
     }
 
     @Override
@@ -228,14 +240,5 @@ public class SessionManager implements Manager {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'setSessionLastAccessAtStart'");
     }
-
-    public Optional<EntityManager> getEm() {
-        return em;
-    }
-
-    public void setEm(Optional<EntityManager> em) {
-        this.em = em;
-    }
-
 
 }

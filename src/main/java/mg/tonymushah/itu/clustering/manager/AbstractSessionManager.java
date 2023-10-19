@@ -14,7 +14,9 @@ public abstract class AbstractSessionManager implements Manager {
     protected long sessionCounter;
     protected long expiredSessions;
     protected int maxActive;
-    private int activeSessions;
+    protected int activeSessions;
+    protected int maxAliveTime;
+    //protected String authType;
     @Override
     public Context getContext() {
         // TODO Auto-generated method stub
@@ -65,5 +67,17 @@ public abstract class AbstractSessionManager implements Manager {
         // TODO Auto-generated method stub
         return this.activeSessions;
     }
-    public 
+    @Override
+    public long getExpiredSessions() {
+        return expiredSessions;
+    }
+    @Override
+    public void setSessionMaxAliveTime(int sessionMaxAliveTime) {
+        this.maxAliveTime = sessionMaxAliveTime;
+    }
+    @Override
+    public int getSessionMaxAliveTime() {
+        return maxAliveTime;
+    }
+    
 }
