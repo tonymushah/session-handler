@@ -1,26 +1,13 @@
 package mg.tonymushah.itu.clustering.manager;
 
-import java.security.Principal;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
-import org.apache.catalina.Manager;
-import org.apache.catalina.Session;
 import org.apache.catalina.SessionListener;
 import org.apache.catalina.session.StandardSessionFacade;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpSession;
 
 public class CustomSession extends AbstractCustomSession {

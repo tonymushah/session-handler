@@ -134,7 +134,14 @@
     <resources>
       <resource>
         <directory>src/main/webapp</directory>
+        <excludes>
+          <exclude>META-INF</exclude>
+        </excludes>
         <targetPath>META-INF/resources</targetPath>
+      </resource>
+      <resource>
+        <directory>src/main/webapp/META-INF</directory>
+        <targetPath>META-INF</targetPath>
       </resource>
     </resources>
     <plugins>

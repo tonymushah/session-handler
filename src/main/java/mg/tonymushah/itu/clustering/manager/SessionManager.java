@@ -2,20 +2,13 @@ package mg.tonymushah.itu.clustering.manager;
 
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
-import java.sql.Connection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.management.RuntimeErrorException;
-
 import org.apache.catalina.Context;
-import org.apache.catalina.Manager;
 import org.apache.catalina.Session;
 import org.apache.catalina.SessionIdGenerator;
-import org.apache.catalina.session.ManagerBase;
-import org.apache.catalina.session.StandardSessionFacade;
-import org.apache.catalina.util.LifecycleMBeanBase;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -26,7 +19,6 @@ import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
