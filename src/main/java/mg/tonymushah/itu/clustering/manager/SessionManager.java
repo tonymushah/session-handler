@@ -14,6 +14,7 @@ import org.apache.catalina.SessionIdGenerator;
 import org.hibernate.PersistentObjectException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -138,7 +139,7 @@ public class SessionManager extends AbstractSessionManager {
 
     @Override
     public Session createSession(String sessionId) {
-        Optional<String> id = Optional.ofNullable(sessionId).filter(inner -> !inner.isEmpty() && !inner.isBlank());
+        Optional<String> id = Optional.ofNullable(sessionId).filter(inner -> !inner.isEmpty() || !inner.isBlank());
         var session = new CustomSession(new SessionEntity(id.orElse(null), null, new Date(), false));
         session.setManager(this);
         this.add(session);
@@ -146,27 +147,36 @@ public class SessionManager extends AbstractSessionManager {
     }
 
     @Override
-    public Session findSession(String id) throws IOException {
-        System.out.println(String.format("Session id: '%s'", Optional.ofNullable(id).orElse("Null")));
-        return em.map(manager -> {
-            Optional<Session> inner = Optional.ofNullable(manager.find(SessionEntity.class, id)).map(data -> {
-                try {
-                    Session session = data.toSession();
-                    session.setManager(this);
-                    return session;
-                } catch (JsonProcessingException e) {
-                    // TODO Auto-generated catch block
-                    throw new RuntimeException(e.getMessage(), e.getCause());
-                }
-            });
-            return inner.orElseGet(() -> {
-                System.out.println("Returned from session null");
+    public Session findSession(String sessionId) throws IOException {
+        Optional<String> id_ = Optional.ofNullable(sessionId).filter(inner -> !inner.isEmpty() || !inner.isBlank());
+        System.out.println(id_.isEmpty());
+        return id_.map(id -> {
+            return em.map(manager -> {
+                Optional<Session> inner = Optional.ofNullable(manager.find(SessionEntity.class, id)).map(data -> {
+                    try {
+                        System.out.println(new ObjectMapper().writeValueAsString(data));
+                    } catch (JsonProcessingException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                    try {
+                        Session session = data.toSession();
+                        session.setManager(this);
+                        return session;
+                    } catch (JsonProcessingException e) {
+                        // TODO Auto-generated catch block
+                        throw new RuntimeException(e.getMessage(), e.getCause());
+                    }
+                });
+                return inner.orElseGet(() -> {
+                    System.out.println("Returned from session null");
+                    return null;
+                });
+            }).orElseGet(() -> {
+                System.out.println("Returned null");
                 return null;
             });
-        }).orElseGet(() -> {
-            // System.out.println("Returned null");
-            return null;
-        });
+        }).orElse(null);
     }
 
     @Override
@@ -179,7 +189,9 @@ public class SessionManager extends AbstractSessionManager {
             TypedQuery<SessionEntity> res = manager.createQuery(query);
             Set<Session> sessions = res.getResultStream().map(value -> {
                 try {
-                    return value.toSession();
+                    var session = value.toSession();
+                    session.setManager(this);
+                    return session;
                 } catch (JsonProcessingException e) {
                     return null;
                 }
