@@ -7,9 +7,6 @@ import org.apache.catalina.Session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -55,7 +52,9 @@ public class SessionEntity {
     }
 
     public void setId(String id) {
-        this.id = id;
+        Optional.ofNullable(id).ifPresent(id_ -> {
+            this.id = id_;
+        });
     }
 
     public SessionEntity() {
@@ -69,30 +68,11 @@ public class SessionEntity {
     }
 
     public Session toSession() throws JsonMappingException, JsonProcessingException {
-        CustomSession session = new CustomSession();
-        session.setId(this.id);
-
-        ObjectMapper mapper = new ObjectMapper();
-
-        ObjectNode dataMap = mapper.createObjectNode();
-
-        JsonNode data = mapper.readTree(this.data);
-
-        var fields = data.fields();
-
-        do {
-            var field = fields.next();
-            dataMap.set(field.getKey(), field.getValue());
-        } while (fields.hasNext());
-
-        session.setData(dataMap);
-        session.setCreationTime(this.insertDate);
-        session.setValid(!isExpired);
-
+        CustomSession session = new CustomSession(this);
         return session;
     }
 
-    public SessionEntity(Session session) throws JsonProcessingException {
+    /*public SessionEntity(Session session) throws JsonProcessingException {
         this.setId(Optional.ofNullable(session.getId()).orElse(null));
         this.setExpired(!session.isValid());
         this.setInsertDate(new Date(session.getCreationTime()));
@@ -105,5 +85,5 @@ public class SessionEntity {
             data.set(fieldName, mapper.valueToTree(fieldData));
         }
         this.setData(mapper.writeValueAsString(data));
-    }
+    }*/
 }

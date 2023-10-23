@@ -4,7 +4,7 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.time.LocalTime;
 import java.time.temporal.ChronoField;
-import java.util.NoSuchElementException;
+import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -12,9 +12,9 @@ import java.util.stream.Collectors;
 import org.apache.catalina.Context;
 import org.apache.catalina.Session;
 import org.apache.catalina.SessionIdGenerator;
+import org.hibernate.PersistentObjectException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -100,10 +100,16 @@ public class SessionManager extends AbstractSessionManager {
             EntityTransaction transaction = entityManager.getTransaction();
             transaction.begin();
             try {
-                var sessionEntity = new SessionEntity(session);
-                System.out.println("inited sessionEntity");
-                if (!entityManager.contains(sessionEntity)) {
-                    entityManager.persist(sessionEntity);
+                if (session instanceof CustomSession) {
+                    var sessionEntity = ((CustomSession) session).getEntity();
+                    if (!entityManager.contains(sessionEntity)) {
+                        try {
+                            entityManager.persist(sessionEntity);
+                        } catch (PersistentObjectException e) {
+                            // TODO: handle exception
+                            e.printStackTrace(System.err);
+                        }
+                    }
                 }
                 transaction.commit();
             } catch (Exception e) {
@@ -132,7 +138,7 @@ public class SessionManager extends AbstractSessionManager {
 
     @Override
     public Session createSession(String sessionId) {
-        var session = new CustomSession();
+        var session = new CustomSession(new SessionEntity(sessionId, "", new Date(), false));
         session.setManager(this);
         session.setId(sessionId);
         return session;
@@ -188,9 +194,11 @@ public class SessionManager extends AbstractSessionManager {
             if (!transaction.isActive()) {
                 transaction.begin();
                 try {
-                    var sessionEntity = new SessionEntity(session);
-                    if (entityManager.contains(sessionEntity)) {
-                        entityManager.remove(sessionEntity);
+                    if (session instanceof CustomSession) {
+                        var sessionEntity = ((CustomSession) session).getEntity();
+                        if (entityManager.contains(sessionEntity)) {
+                            entityManager.remove(sessionEntity);
+                        }
                     }
                     transaction.commit();
                 } catch (Exception e) {
@@ -221,7 +229,6 @@ public class SessionManager extends AbstractSessionManager {
                     update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
                             criteriaBuilder.sum(root.get("insertDate"),
                                     LocalTime.of(0, 30, 0).getLong(ChronoField.MILLI_OF_SECOND))));
-
                     transaction.begin();
                     try {
                         manager.createQuery(update).executeUpdate();
