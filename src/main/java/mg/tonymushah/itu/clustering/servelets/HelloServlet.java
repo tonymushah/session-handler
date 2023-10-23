@@ -19,7 +19,7 @@ public class HelloServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-                
+        req.getSession().setAttribute("data", "some");
         ServletOutputStream out = resp.getOutputStream();
         out.write("hello heroku".getBytes());
         out.flush();

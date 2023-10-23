@@ -1,6 +1,7 @@
 package mg.tonymushah.itu.clustering.entities;
 
 import java.util.Date;
+import java.util.Optional;
 
 import org.apache.catalina.Session;
 
@@ -11,12 +12,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import mg.tonymushah.itu.clustering.manager.CustomSession;
 
 @Entity
 public class SessionEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     private String data;
     private long insertDate;
@@ -89,17 +93,17 @@ public class SessionEntity {
     }
 
     public SessionEntity(Session session) throws JsonProcessingException {
-        this.setId(session.getId());
+        this.setId(Optional.ofNullable(session.getId()).orElse(null));
         this.setExpired(!session.isValid());
         this.setInsertDate(new Date(session.getCreationTime()));
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode data = mapper.createObjectNode();
         var noteNames = session.getNoteNames();
-        do {
+        while (noteNames.hasNext()){
             String fieldName = noteNames.next();
             Object fieldData = session.getNote(fieldName);
             data.set(fieldName, mapper.valueToTree(fieldData));
-        } while (noteNames.hasNext());
+        }
         this.setData(mapper.writeValueAsString(data));
     }
 }

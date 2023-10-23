@@ -3,6 +3,8 @@ package mg.tonymushah.itu.clustering.manager;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.time.LocalTime;
+import java.time.temporal.ChronoField;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,7 +27,7 @@ import jakarta.persistence.criteria.Root;
 import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
 public class SessionManager extends AbstractSessionManager {
-    private Optional<EntityManager> em;
+    private Optional<EntityManager> em = Optional.empty();
     protected Context context;
     protected SessionIdGenerator sessionIdGenerator;
     protected EntityManagerFactory entityManagerFactory;
@@ -40,8 +42,9 @@ public class SessionManager extends AbstractSessionManager {
         }
     }
 
-    public SessionManager(EntityManagerFactory entityManagerFactory) {
+    public SessionManager(EntityManagerFactory entityManagerFactory) throws ClassNotFoundException, IOException {
         this.entityManagerFactory = entityManagerFactory;
+        this.load();
     }
 
     public Optional<EntityManager> getEm() {
@@ -98,13 +101,14 @@ public class SessionManager extends AbstractSessionManager {
             transaction.begin();
             try {
                 var sessionEntity = new SessionEntity(session);
+                System.out.println("inited sessionEntity");
                 if (!entityManager.contains(sessionEntity)) {
                     entityManager.persist(sessionEntity);
                 }
                 transaction.commit();
             } catch (Exception e) {
                 transaction.rollback();
-                throw new RuntimeException(e.fillInStackTrace());
+                throw new RuntimeException(e.getMessage(), e.getCause());
             }
         }, null);
     }
@@ -137,16 +141,17 @@ public class SessionManager extends AbstractSessionManager {
     @Override
     public Session findSession(String id) throws IOException {
         return em.map(manager -> {
-            SessionEntity inner = manager.find(SessionEntity.class, id);
-            try {
-                Session toReturn = inner.toSession();
-                toReturn.setManager(this);
-                return toReturn;
-            } catch (JsonMappingException e) {
-                throw new RuntimeException(e.fillInStackTrace());
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e.fillInStackTrace());
-            }
+            Optional<SessionEntity> inner = Optional.ofNullable(manager.find(SessionEntity.class, id));
+            Session toReturn = inner.map(data -> {
+                try {
+                    return data.toSession();
+                } catch (JsonProcessingException e) {
+                    // TODO Auto-generated catch block
+                    throw new RuntimeException(e.getMessage(), e.getCause());
+                }
+            }).orElseGet(() -> this.createSession(id));
+            toReturn.setManager(this);
+            return toReturn;
         }).orElse(null);
     }
 
@@ -180,16 +185,18 @@ public class SessionManager extends AbstractSessionManager {
     public void remove(Session session, boolean update) {
         em.ifPresentOrElse(entityManager -> {
             EntityTransaction transaction = entityManager.getTransaction();
-            transaction.begin();
-            try {
-                var sessionEntity = new SessionEntity(session);
-                if (entityManager.contains(sessionEntity)) {
-                    entityManager.remove(sessionEntity);
+            if (!transaction.isActive()) {
+                transaction.begin();
+                try {
+                    var sessionEntity = new SessionEntity(session);
+                    if (entityManager.contains(sessionEntity)) {
+                        entityManager.remove(sessionEntity);
+                    }
+                    transaction.commit();
+                } catch (Exception e) {
+                    transaction.rollback();
+                    throw new RuntimeException(e.fillInStackTrace());
                 }
-                transaction.commit();
-            } catch (Exception e) {
-                transaction.rollback();
-                throw new RuntimeException(e.fillInStackTrace());
             }
         }, null);
     }
@@ -203,23 +210,31 @@ public class SessionManager extends AbstractSessionManager {
     @Override
     public void backgroundProcess() {
         // TODO add
-        em.ifPresent(manager -> {
-            CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
-            CriteriaUpdate<SessionEntity> update = criteriaBuilder.createCriteriaUpdate(SessionEntity.class);
-            Root<SessionEntity> root = update.from(SessionEntity.class);
-            update.set(root.get("isExpired"), true);
-            update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
-                    criteriaBuilder.sum(root.get("insertDate"), LocalTime.of(0, 30, 0).getLong(null))));
-            EntityTransaction transaction = manager.getTransaction();
-            transaction.begin();
-            try {
-                manager.createQuery(update).executeUpdate();
-                transaction.commit();
-            } catch (Exception e) {
-                // TODO: handle exception
-                transaction.rollback();
-            }
+        Optional.ofNullable(em).ifPresent(em -> {
+            em.ifPresent(manager -> {
+                EntityTransaction transaction = manager.getTransaction();
+                if (!transaction.isActive()) {
+                    CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
+                    CriteriaUpdate<SessionEntity> update = criteriaBuilder.createCriteriaUpdate(SessionEntity.class);
+                    Root<SessionEntity> root = update.from(SessionEntity.class);
+                    update.set(root.get("isExpired"), true);
+                    update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
+                            criteriaBuilder.sum(root.get("insertDate"),
+                                    LocalTime.of(0, 30, 0).getLong(ChronoField.MILLI_OF_SECOND))));
+
+                    transaction.begin();
+                    try {
+                        manager.createQuery(update).executeUpdate();
+                        transaction.commit();
+                    } catch (Exception e) {
+                        // TODO: handle exception
+                        transaction.rollback();
+                    }
+                }
+
+            });
         });
+
     }
 
     @Override

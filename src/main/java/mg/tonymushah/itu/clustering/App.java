@@ -10,6 +10,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.apache.catalina.LifecycleEvent;
+import org.apache.catalina.LifecycleListener;
 import org.apache.catalina.WebResourceRoot;
 import org.apache.catalina.WebResourceSet;
 import org.apache.catalina.core.StandardContext;
@@ -100,7 +102,6 @@ public class App {
         ctx.setResources(resources);
 
         tomcat.getConnector();
-
         tomcat.start();
     }
 }

@@ -9,8 +9,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.servlet.http.HttpSession;
+import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
 public class CustomSession extends AbstractCustomSession {
+
+    private SessionEntity entity;
 
     protected ObjectNode data;
     protected final ObjectMapper mapper = new ObjectMapper();
