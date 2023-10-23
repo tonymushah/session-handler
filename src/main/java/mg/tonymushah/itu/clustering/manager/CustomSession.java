@@ -7,6 +7,7 @@ import org.apache.catalina.SessionListener;
 import org.apache.catalina.session.StandardSessionFacade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -15,17 +16,13 @@ import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
 public class CustomSession extends AbstractCustomSession {
 
-    private SessionEntity entity;
+    private final SessionEntity entity;
 
     protected ObjectNode data;
     protected final ObjectMapper mapper = new ObjectMapper();
 
     public SessionEntity getEntity() {
         return entity;
-    }
-
-    public void setEntity(SessionEntity entity) {
-        this.entity = entity;
     }
 
     @Override
@@ -39,8 +36,9 @@ public class CustomSession extends AbstractCustomSession {
     }
 
     public CustomSession(SessionEntity entity) {
-        this.setEntity(entity);
+        this.entity = entity;
         this.setData(mapper.createObjectNode());
+        this.id = entity.getId();
     }
 
     public void setData(ObjectNode data) {
@@ -162,7 +160,6 @@ public class CustomSession extends AbstractCustomSession {
         this.data.set(name, mapper.valueToTree(value));
         this.updateThis();
     }
-
     @Override
     public void tellChangedSessionId(String newId, String oldId, boolean notifySessionListeners,
             boolean notifyContainerListeners) {
@@ -174,5 +171,11 @@ public class CustomSession extends AbstractCustomSession {
     public boolean isAttributeDistributable(String name, Object value) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'isAttributeDistributable'");
+    }
+    public void refreshSession() throws JsonMappingException, JsonProcessingException{
+        this.id = this.entity.getId();
+        this.creationTime = this.entity.getInsertDate().getTime();
+        this.isValid = this.entity.isExpired();
+        this.data = this.entity.getDataObjectNode();
     }
 }

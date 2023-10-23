@@ -1,12 +1,16 @@
 package mg.tonymushah.itu.clustering.entities;
 
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.catalina.Session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -72,18 +76,22 @@ public class SessionEntity {
         return session;
     }
 
+    public ObjectNode getDataObjectNode() throws JsonMappingException, JsonProcessingException{
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode data = mapper.createObjectNode();
+        JsonNode data_JsonNode = mapper.readTree(this.data);
+        var noteNames = data_JsonNode.fields();
+        while (noteNames.hasNext()){
+            Map.Entry<String,JsonNode> field = noteNames.next();
+            data.set(field.getKey(), mapper.valueToTree(field.getValue()));
+        }
+        return data;
+    }
     /*public SessionEntity(Session session) throws JsonProcessingException {
         this.setId(Optional.ofNullable(session.getId()).orElse(null));
         this.setExpired(!session.isValid());
         this.setInsertDate(new Date(session.getCreationTime()));
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode data = mapper.createObjectNode();
-        var noteNames = session.getNoteNames();
-        while (noteNames.hasNext()){
-            String fieldName = noteNames.next();
-            Object fieldData = session.getNote(fieldName);
-            data.set(fieldName, mapper.valueToTree(fieldData));
-        }
+        
         this.setData(mapper.writeValueAsString(data));
     }*/
 }

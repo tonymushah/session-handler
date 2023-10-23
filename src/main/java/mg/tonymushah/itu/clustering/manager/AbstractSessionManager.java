@@ -1,7 +1,5 @@
 package mg.tonymushah.itu.clustering.manager;
 
-import java.security.Principal;
-
 import org.apache.catalina.Context;
 import org.apache.catalina.Manager;
 import org.apache.catalina.SessionIdGenerator;
@@ -9,7 +7,6 @@ import org.apache.catalina.SessionIdGenerator;
 public abstract class AbstractSessionManager implements Manager {
     protected Context context;
     protected SessionIdGenerator sessionIdGenerator;
-    protected Principal principal;
     protected int createReate;
     protected long sessionCounter;
     protected long expiredSessions;
@@ -34,12 +31,6 @@ public abstract class AbstractSessionManager implements Manager {
     @Override
     public void setSessionIdGenerator(SessionIdGenerator sessionIdGenerator) {
         this.sessionIdGenerator = sessionIdGenerator;
-    }
-    public void setPrincipal(Principal principal){
-        this.principal = principal;
-    }
-    public Principal getPrincipal() {
-        return principal;
     }
     @Override
     public int getSessionCreateRate() {

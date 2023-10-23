@@ -2,11 +2,10 @@ package mg.tonymushah.itu.clustering.manager;
 
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
-import java.time.LocalTime;
-import java.time.temporal.ChronoField;
 import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.catalina.Context;
@@ -22,7 +21,6 @@ import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.CriteriaUpdate;
 import jakarta.persistence.criteria.Root;
 import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
@@ -101,7 +99,8 @@ public class SessionManager extends AbstractSessionManager {
             transaction.begin();
             try {
                 if (session instanceof CustomSession) {
-                    var sessionEntity = ((CustomSession) session).getEntity();
+                    CustomSession customSession = ((CustomSession) session);
+                    var sessionEntity = customSession.getEntity();
                     if (!entityManager.contains(sessionEntity)) {
                         try {
                             entityManager.persist(sessionEntity);
@@ -110,6 +109,7 @@ public class SessionManager extends AbstractSessionManager {
                             e.printStackTrace(System.err);
                         }
                     }
+                    customSession.refreshSession();
                 }
                 transaction.commit();
             } catch (Exception e) {
@@ -133,32 +133,40 @@ public class SessionManager extends AbstractSessionManager {
 
     @Override
     public Session createEmptySession() {
-        return this.createSession(this.getSessionIdGenerator().generateSessionId());
+        return this.createSession(UUID.randomUUID().toString());
     }
 
     @Override
     public Session createSession(String sessionId) {
-        var session = new CustomSession(new SessionEntity(sessionId, "", new Date(), false));
+        Optional<String> id = Optional.ofNullable(sessionId).filter(inner -> !inner.isEmpty() && !inner.isBlank());
+        var session = new CustomSession(new SessionEntity(id.orElse(null), null, new Date(), false));
         session.setManager(this);
-        session.setId(sessionId);
+        this.add(session);
         return session;
     }
 
     @Override
     public Session findSession(String id) throws IOException {
+        System.out.println(String.format("Session id: '%s'", Optional.ofNullable(id).orElse("Null")));
         return em.map(manager -> {
-            Optional<SessionEntity> inner = Optional.ofNullable(manager.find(SessionEntity.class, id));
-            Session toReturn = inner.map(data -> {
+            Optional<Session> inner = Optional.ofNullable(manager.find(SessionEntity.class, id)).map(data -> {
                 try {
-                    return data.toSession();
+                    Session session = data.toSession();
+                    session.setManager(this);
+                    return session;
                 } catch (JsonProcessingException e) {
                     // TODO Auto-generated catch block
                     throw new RuntimeException(e.getMessage(), e.getCause());
                 }
-            }).orElseGet(() -> this.createSession(id));
-            toReturn.setManager(this);
-            return toReturn;
-        }).orElse(null);
+            });
+            return inner.orElseGet(() -> {
+                System.out.println("Returned from session null");
+                return null;
+            });
+        }).orElseGet(() -> {
+            // System.out.println("Returned null");
+            return null;
+        });
     }
 
     @Override
@@ -195,7 +203,8 @@ public class SessionManager extends AbstractSessionManager {
                 transaction.begin();
                 try {
                     if (session instanceof CustomSession) {
-                        var sessionEntity = ((CustomSession) session).getEntity();
+                        CustomSession customSession = ((CustomSession) session);
+                        var sessionEntity = customSession.getEntity();
                         if (entityManager.contains(sessionEntity)) {
                             entityManager.remove(sessionEntity);
                         }
@@ -217,30 +226,33 @@ public class SessionManager extends AbstractSessionManager {
 
     @Override
     public void backgroundProcess() {
-        // TODO add
-        Optional.ofNullable(em).ifPresent(em -> {
-            em.ifPresent(manager -> {
-                EntityTransaction transaction = manager.getTransaction();
-                if (!transaction.isActive()) {
-                    CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
-                    CriteriaUpdate<SessionEntity> update = criteriaBuilder.createCriteriaUpdate(SessionEntity.class);
-                    Root<SessionEntity> root = update.from(SessionEntity.class);
-                    update.set(root.get("isExpired"), true);
-                    update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
-                            criteriaBuilder.sum(root.get("insertDate"),
-                                    LocalTime.of(0, 30, 0).getLong(ChronoField.MILLI_OF_SECOND))));
-                    transaction.begin();
-                    try {
-                        manager.createQuery(update).executeUpdate();
-                        transaction.commit();
-                    } catch (Exception e) {
-                        // TODO: handle exception
-                        transaction.rollback();
-                    }
-                }
-
-            });
-        });
+        /*
+         * Optional.ofNullable(em).ifPresent(em -> {
+         * em.ifPresent(manager -> {
+         * EntityTransaction transaction = manager.getTransaction();
+         * if (!transaction.isActive()) {
+         * CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
+         * CriteriaUpdate<SessionEntity> update =
+         * criteriaBuilder.createCriteriaUpdate(SessionEntity.class);
+         * Root<SessionEntity> root = update.from(SessionEntity.class);
+         * update.set(root.get("isExpired"), true);
+         * update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
+         * criteriaBuilder.sum(root.get("insertDate"),
+         * LocalTime.of(0, 30, 0).getLong(ChronoField.MICRO_OF_DAY))));
+         * transaction.begin();
+         * try {
+         * manager.createQuery(update).executeUpdate();
+         * transaction.commit();
+         * } catch (Exception e) {
+         * // TODO: handle exception
+         * transaction.rollback();
+         * }
+         * }
+         * 
+         * });
+         * });
+         * 
+         */
 
     }
 
