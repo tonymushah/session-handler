@@ -2,6 +2,7 @@ package mg.tonymushah.itu.clustering.manager;
 
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
+import java.time.LocalTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.CriteriaUpdate;
 import jakarta.persistence.criteria.Root;
 import mg.tonymushah.itu.clustering.entities.SessionEntity;
 
@@ -31,12 +33,13 @@ public class SessionManager extends AbstractSessionManager {
     @Override
     public int getActiveSessions() {
         Session[] sessions = findSessions();
-        if(sessions != null){
+        if (sessions != null) {
             return sessions.length;
-        }else{
+        } else {
             return 0;
         }
     }
+
     public SessionManager(EntityManagerFactory entityManagerFactory) {
         this.entityManagerFactory = entityManagerFactory;
     }
@@ -95,7 +98,7 @@ public class SessionManager extends AbstractSessionManager {
             transaction.begin();
             try {
                 var sessionEntity = new SessionEntity(session);
-                if(!entityManager.contains(sessionEntity)){
+                if (!entityManager.contains(sessionEntity)) {
                     entityManager.persist(sessionEntity);
                 }
                 transaction.commit();
@@ -180,7 +183,7 @@ public class SessionManager extends AbstractSessionManager {
             transaction.begin();
             try {
                 var sessionEntity = new SessionEntity(session);
-                if(entityManager.contains(sessionEntity)){
+                if (entityManager.contains(sessionEntity)) {
                     entityManager.remove(sessionEntity);
                 }
                 transaction.commit();
@@ -188,7 +191,7 @@ public class SessionManager extends AbstractSessionManager {
                 transaction.rollback();
                 throw new RuntimeException(e.fillInStackTrace());
             }
-        }, null);;
+        }, null);
     }
 
     @Override
@@ -199,8 +202,24 @@ public class SessionManager extends AbstractSessionManager {
 
     @Override
     public void backgroundProcess() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'backgroundProcess'");
+        // TODO add
+        em.ifPresent(manager -> {
+            CriteriaBuilder criteriaBuilder = manager.getCriteriaBuilder();
+            CriteriaUpdate<SessionEntity> update = criteriaBuilder.createCriteriaUpdate(SessionEntity.class);
+            Root<SessionEntity> root = update.from(SessionEntity.class);
+            update.set(root.get("isExpired"), true);
+            update.where(criteriaBuilder.greaterThanOrEqualTo(root.get("insertDate"),
+                    criteriaBuilder.sum(root.get("insertDate"), LocalTime.of(0, 30, 0).getLong(null))));
+            EntityTransaction transaction = manager.getTransaction();
+            transaction.begin();
+            try {
+                manager.createQuery(update).executeUpdate();
+                transaction.commit();
+            } catch (Exception e) {
+                // TODO: handle exception
+                transaction.rollback();
+            }
+        });
     }
 
     @Override
