@@ -2,6 +2,7 @@ package mg.tonymushah.itu.clustering.servelets;
 
 
 import java.io.IOException;
+import java.util.Optional;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -17,7 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class HelloServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+    public void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         req.getSession().setAttribute("data", "some");
         ServletOutputStream out = resp.getOutputStream();
@@ -26,4 +27,19 @@ public class HelloServlet extends HttpServlet {
         out.close();
     }
 
+    @Override
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        Optional<Object> data = Optional.ofNullable(req.getSession().getAttribute("data"));
+        String dataString = data.map(data_ -> {
+            if(data_ instanceof String) {
+                return (String) data_;
+            }else{
+                return data_.toString();
+            }
+        }).orElseGet(() -> "nothing");
+        ServletOutputStream out = resp.getOutputStream();
+        out.write(String.format("Session data : '%s'", dataString).getBytes());
+        out.flush();
+        out.close();
+    }
 }

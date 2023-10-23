@@ -175,5 +175,4 @@ public class CustomSession extends AbstractCustomSession {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'isAttributeDistributable'");
     }
-
 }

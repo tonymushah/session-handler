@@ -20,6 +20,7 @@ import org.apache.catalina.webresources.StandardRoot;
 
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
+import mg.tonymushah.itu.clustering.manager.CustomSessionIdGenerator;
 import mg.tonymushah.itu.clustering.manager.SessionManager;
 
 public class App {
@@ -77,7 +78,9 @@ public class App {
         // Set execution independent of current thread context classloader
         // (compatibility with exec:java mojo)
         ctx.setParentClassLoader(App.class.getClassLoader());
-        ctx.setManager(new SessionManager(entityManagerFactory));
+        SessionManager sessionManager = new SessionManager(entityManagerFactory);
+        sessionManager.setSessionIdGenerator(new CustomSessionIdGenerator());
+        ctx.setManager(sessionManager);
 
         System.out.println("configuring app with basedir: " + webContentFolder.getAbsolutePath());
 
