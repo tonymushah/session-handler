@@ -8,9 +8,9 @@
 
         <properties>
             <!-- Database connection settings -->
-            <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1" />
-            <property name="jakarta.persistence.jdbc.user" value="sa" />
-            <property name="jakarta.persistence.jdbc.password" value="" />
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:mariadb://localhost:3306/test_session_" />
+            <property name="jakarta.persistence.jdbc.user" value="test_session_" />
+            <property name="jakarta.persistence.jdbc.password" value="etu001844" />
 
             <!-- Automatically export the schema -->
             <property name="jakarta.persistence.schema-generation.database.action" value="create" />
